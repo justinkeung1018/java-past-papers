@@ -7,4 +7,4 @@ should be changed to
 ```
 WeightedEdge edge = new WeightedEdge(res.newIndex, index, res.numFlips);
 ```
-(Otherwise the function will actually be `generateChildren` and the parent-child relationship of the weighted edges will be all wrong. Although it makes more sense for it to be `generateChildren` since we are constructing an MST with the target configuration as the root node.)
+Otherwise the function will actually be `generateChildren` and the parent-child relationship of the weighted edges will be all wrong. Although it makes more sense for it to be `generateChildren` since we are constructing an MST with the target configuration as the root node, so I think inconsistencies in the spec are to blame.
