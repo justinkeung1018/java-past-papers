@@ -5,6 +5,7 @@
 public class ListArrayBased<T> implements ListInterface<T> {
 
   private int maxList = 512;
+  private final static int RESIZING_FACTOR = 2;
   private T[] list;
   private int length;
 
@@ -54,7 +55,17 @@ public class ListArrayBased<T> implements ListInterface<T> {
    */
   public void add(int givenPosition, T newItem)
       throws ListIndexOutOfBoundsException {
-    // TODO: Implement this method for Question 1
+    if (givenPosition < 1 || givenPosition > length + 1) {
+      throw new ListIndexOutOfBoundsException("Specified index is out of bounds");
+    }
+    if (givenPosition < length + 1) {
+      makeRoom(givenPosition);
+    }
+    if (list.length == length) {
+      list = (T[]) new Object[list.length * RESIZING_FACTOR];
+    }
+    list[translate(givenPosition)] = newItem;
+    length++;
   }
 
   /**

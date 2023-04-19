@@ -52,7 +52,38 @@ public class PriorityQueue<T extends Comparable<T>> implements
    * @throws PriorityQueueException if the priority queue is full
    */
   public void add(T newEntry) throws PriorityQueueException {
-    // TODO: Implement this method for Question 2
+    if (size == max_size) {
+      throw new PriorityQueueException("Priority queue is full");
+    }
+    items[size] = newEntry;
+    swim(size);
+    size++;
+  }
+
+  /**
+   * "Swims" (or percolates up) the item at the given index
+   * such that the min heap property is attained.
+   *
+   * @param index The index of the item to swim upwards.
+   */
+  private void swim(int index) {
+    int parent = (index - 1) / 2;
+    if (items[index].compareTo(items[parent]) < 0) {
+      swap(index, parent);
+      swim(parent);
+    }
+  }
+
+  /**
+   * Swaps the two items at the specified indices.
+   *
+   * @param index1 The first index.
+   * @param index2 The second index.
+   */
+  private void swap(int index1, int index2) {
+    T temp = items[index1];
+    items[index1] = items[index2];
+    items[index2] = temp;
   }
 
   /**
@@ -70,7 +101,18 @@ public class PriorityQueue<T extends Comparable<T>> implements
    * <strong>Implement this method for Question 2.</strong>
    */
   private void priorityQueueRebuild(int root) {
-    // TODO: Implement this method for Question 2
+    int left = 2 * root + 1;
+    int right = 2 * root + 2;
+    if (items[left] == null) {
+      // This implies items[right] == null as well since min heaps are left complete,
+      // which implies root has no children
+      return;
+    }
+    int smaller = (items[right] == null || items[left].compareTo(items[right]) < 0) ? left : right;
+    if (items[root].compareTo(items[smaller]) > 0) {
+      swap(root, smaller);
+      priorityQueueRebuild(smaller);
+    }
   }
 
   public Iterator<Object> iterator() {

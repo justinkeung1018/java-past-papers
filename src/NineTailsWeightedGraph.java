@@ -18,13 +18,39 @@ public class NineTailsWeightedGraph {
   public NineTailsWeightedGraph() {
     constructGraph();
     constructMinimumSpanningTree();
+    /* The following versions deviate slightly from the spec, but is more efficient
+    constructGraph2();
+    constructMinimumSpanningTree2();
+    */
   }
 
   /**
    * <strong>Implement this method for Question 3.</strong>
    */
   private void constructGraph() {
-    // TODO: Implement this method for Question 3
+    configurations = new ListArrayBased<>();
+    for (int index = 1; index <= NUM_CONFIGURATIONS; index++) {
+      configurations.add(index, generateParents(index));
+    }
+  }
+
+  private void constructGraph2() {
+    // Each priority queue stores all the edges with the index as parent,
+    // not as child (as in the spec)
+    configurations = new ListArrayBased<>();
+    for (int index = 1; index <= NUM_CONFIGURATIONS; index++) {
+      configurations.add(index, new PriorityQueue<>());
+    }
+    for (int index = 1; index <= NUM_CONFIGURATIONS; index++) {
+      char[] config = indexToConfiguration(index);
+      for (int pos = 0; pos < 9; pos++) {
+        if (config[pos] == 'H') {
+          FlipResult res = flipConfiguration(index, pos);
+          WeightedEdge edge = new WeightedEdge(res.newIndex, index, res.numFlips);
+          configurations.get(res.newIndex).add(edge);
+        }
+      }
+    }
   }
 
   /**
@@ -54,8 +80,12 @@ public class NineTailsWeightedGraph {
     for (int pos = 0; pos < 9; pos++) {
       if (conf[pos] == 'H') {
         FlipResult res = flipConfiguration(index, pos);
-        WeightedEdge edge = new WeightedEdge(index, res.newIndex,
-            res.numFlips);
+        // The following line does not do what it is supposed to do:
+        // it generates all the edges with index as parent, not as child
+        // WeightedEdge edge = new WeightedEdge(index, res.newIndex, res.numFlips);
+
+        // The line has been corrected below:
+        WeightedEdge edge = new WeightedEdge(res.newIndex, index, res.numFlips);
         parents.add(edge);
       }
     }
@@ -220,7 +250,100 @@ public class NineTailsWeightedGraph {
 
     ListInterface<PriorityQueueInterface<WeightedEdge>> confCopy = getConfigurationsCopy();
 
-    // TODO: Implement the rest of this method for Question 4
+    visited.add(1, TERMINAL_CONFIGURATION_INDEX);
+    costs[TERMINAL_CONFIGURATION_INDEX] = 0;
+    // The effect of the following line is already achieved in the for loop above,
+    // but kept here for clarity
+    nextMoves[TERMINAL_CONFIGURATION_INDEX] = -1;
+
+    while (visited.size() < NUM_CONFIGURATIONS) {
+      int minCost = Integer.MAX_VALUE;
+      int bestChild = -1;
+      int bestParent = -1;
+
+      for (int index = 1; index <= NUM_CONFIGURATIONS; index++) {
+        if (visited.contains(index)) {
+          continue;
+        }
+        PriorityQueueInterface<WeightedEdge> edges = confCopy.get(index);
+        while (!edges.isEmpty()) {
+          WeightedEdge minEdge = edges.peek();
+          if (!visited.contains(minEdge.parent)) {
+            edges.remove();
+            continue;
+          }
+          int cost = costs[minEdge.parent] + minEdge.weight;
+          if (cost < minCost) {
+            minCost = cost;
+            bestChild = minEdge.child;
+            bestParent = minEdge.parent;
+          }
+          break;
+        }
+      }
+
+      visited.add(visited.size(), bestChild);
+      costs[bestChild] = minCost;
+      nextMoves[bestChild] = bestParent;
+
+      // Some removed edges might be relevant in our next iteration, so we need to recover them
+      confCopy = getConfigurationsCopy();
+    }
+
+    mst = new MinimumSpanningTree(nextMoves, costs);
+  }
+
+  // Compared to constructMinimumSpanningTree:
+  // 1. We do not need to clone the configurations after every iteration
+  // 2. We check fewer edges during every iteration
+  private void constructMinimumSpanningTree2() {
+    ListInterface<Integer> visited = new ListArrayBased<>();
+    int[] nextMoves = new int[NUM_CONFIGURATIONS + 1];
+    int[] costs = new int[NUM_CONFIGURATIONS + 1];
+    // init
+    for (int i = 1; i <= NUM_CONFIGURATIONS; i++) {
+      nextMoves[i] = -1; // -1 means not visited yet (i.e., no parental information)
+      costs[i] = Integer.MAX_VALUE;
+    }
+
+    visited.add(1, TERMINAL_CONFIGURATION_INDEX);
+    costs[TERMINAL_CONFIGURATION_INDEX] = 0;
+    nextMoves[TERMINAL_CONFIGURATION_INDEX] = -1;
+
+    while (visited.size() < NUM_CONFIGURATIONS) {
+      int minCost = Integer.MAX_VALUE;
+      int bestChild = -1;
+      int bestParent = -1;
+
+      for (int i = 1; i <= visited.size(); i++) {
+        int parent = visited.get(i);
+        PriorityQueueInterface<WeightedEdge> edges = configurations.get(parent);
+        while (!edges.isEmpty()) {
+          WeightedEdge minEdge = edges.peek();
+          if (visited.contains(minEdge.child)) {
+            // The child node is already in the shortest path tree
+            edges.remove();
+            continue;
+          }
+          int cost = minEdge.weight + costs[parent];
+          if (cost < minCost) {
+            minCost = cost;
+            bestChild = minEdge.child;
+            bestParent = parent;
+          }
+          break;
+        }
+      }
+
+      if (bestChild == -1) {
+        break;
+      }
+      visited.add(visited.size(), bestChild);
+      costs[bestChild] = minCost;
+      nextMoves[bestChild] = bestParent;
+    }
+
+    mst = new MinimumSpanningTree(nextMoves, costs);
   }
 
   // *** helper classes
