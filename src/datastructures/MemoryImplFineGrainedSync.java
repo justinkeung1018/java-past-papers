@@ -3,21 +3,34 @@ package datastructures;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
-/*
-  NOTE: I have chosen to use sentinel nodes for head and tail
-  for my implementation of AuxiliaryCollectionImpl.
- */
-@SuppressWarnings({"rawtypes", "unchecked"})
-public class MemoryImpl<K, V> implements MemoryI<K, V> {
+public class MemoryImplFineGrainedSync<K, V> implements MemoryI<K, V> {
+  private static class LockableMap<K, V> extends HashMap<K, V> {
+    private final Lock lock;
+
+    public LockableMap(int capacity) {
+      super();
+      lock = new ReentrantLock();
+    }
+
+    public void lock() {
+      lock.lock();
+    }
+
+    public void unlock() {
+      lock.unlock();
+    }
+  }
 
   private final int capacity;
-  HashMap<K, DoublyLinkedNode<K, V>> map;
-  AuxiliaryCollectionImpl list;
+  LockableMap<K, DoublyLinkedNode<K, V>> map;
+  AuxiliaryCollectionImplFineGrainedSync list;
 
-  public MemoryImpl(int capacity) {
-    map = new HashMap<>(capacity);
-    list = new AuxiliaryCollectionImpl<>();
+  public MemoryImplFineGrainedSync(int capacity) {
+    map = new LockableMap<>(capacity);
+    list = new AuxiliaryCollectionImplFineGrainedSync<>();
 
     this.capacity = capacity;
   }
@@ -51,11 +64,15 @@ public class MemoryImpl<K, V> implements MemoryI<K, V> {
    */
   @Override
   public Optional<V> read(K key) {
+    map.lock();
     if (!map.containsKey(key)) {
+      map.unlock();
       return Optional.empty();
     }
+    Optional<V> value = Optional.of(map.get(key).getValue());
+    map.unlock();
     update(key);
-    return Optional.of(map.get(key).getValue());
+    return value;
   }
 
   /**
@@ -70,9 +87,13 @@ public class MemoryImpl<K, V> implements MemoryI<K, V> {
     if (key == null) {
       return false;
     }
+
+    map.lock();
+
     if (map.containsKey(key)) {
       map.get(key).setValue(value);
       update(key);
+      map.unlock();
       return true;
     }
     if (size() >= capacity) {
@@ -82,6 +103,9 @@ public class MemoryImpl<K, V> implements MemoryI<K, V> {
     }
     DoublyLinkedNode<K, V> node = new DoublyLinkedNode<>(key, value);
     map.put(key, node);
+
+    map.unlock();
+
     list.append(node);
     return true;
   }

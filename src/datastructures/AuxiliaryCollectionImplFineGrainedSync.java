@@ -2,35 +2,21 @@ package datastructures;
 
 import java.util.ArrayList;
 import java.util.List;
-
-/*
-  NOTE: I have chosen to use dummy nodes for head and tail
-  for my implementation of AuxiliaryCollectionImpl to simplify
-  bookkeeping and avoid edge cases, such as when the list is
-  empty or only has one element. As a result of this design
-  decision, the following provided methods have been modified
-  to achieve the expected test results:
-  - The constructor
-  - find
-  - allKeysInOrder
-
-  The commented code is from my initial attempt of implementing
-  the class without using dummy nodes.
- */
+import java.util.concurrent.atomic.AtomicInteger;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class AuxiliaryCollectionImpl<K, V> implements AuxiliaryCollectionI<K, V> {
+public class AuxiliaryCollectionImplFineGrainedSync<K, V> implements AuxiliaryCollectionI<K, V> {
 
-  private DoublyLinkedNode<K, V> head;
-  private DoublyLinkedNode<K, V> tail;
-  private int size;
+  private LockableDoublyLinkedNode<K, V> head;
+  private LockableDoublyLinkedNode<K, V> tail;
+  private AtomicInteger size;
 
-  public AuxiliaryCollectionImpl() {
-    head = new DoublyLinkedNode<>(null, null);
-    tail = new DoublyLinkedNode<>(null, null);
+  public AuxiliaryCollectionImplFineGrainedSync() {
+    head = new LockableDoublyLinkedNode<>(null, null);
+    tail = new LockableDoublyLinkedNode<>(null, null);
     head.setNext(tail);
     tail.setPrevious(head);
-    size = 0;
+    size = new AtomicInteger(0);
   }
 
   /**
@@ -42,23 +28,25 @@ public class AuxiliaryCollectionImpl<K, V> implements AuxiliaryCollectionI<K, V>
    */
   @Override
   public boolean remove(DoublyLinkedNode toRemove) {
+    ((LockableDoublyLinkedNode) toRemove).lock();
+    ((LockableDoublyLinkedNode) toRemove.getPrevious()).lock();
+    ((LockableDoublyLinkedNode) toRemove.getNext()).lock();
+
     if (toRemove == null) {
+      ((LockableDoublyLinkedNode) toRemove).unlock();
+      ((LockableDoublyLinkedNode) toRemove.getPrevious()).unlock();
+      ((LockableDoublyLinkedNode) toRemove.getNext()).unlock();
       return false;
     }
+
     toRemove.getPrevious().setNext(toRemove.getNext());
     toRemove.getNext().setPrevious(toRemove.getPrevious());
-    size--;
-    //    if (toRemove.getPrevious() != null) {
-    //      toRemove.getPrevious().setNext(toRemove.getNext());
-    //    }
-    //    if (toRemove.getNext() != null) {
-    //      toRemove.getNext().setPrevious(toRemove.getPrevious());
-    //    }
-    //    size--;
-    //    head = toRemove.getNext();
-    //    if (size <= 0) {
-    //      tail = null;
-    //    }
+    size.decrementAndGet();
+
+    ((LockableDoublyLinkedNode) toRemove).unlock();
+    ((LockableDoublyLinkedNode) toRemove.getPrevious()).unlock();
+    ((LockableDoublyLinkedNode) toRemove.getNext()).unlock();
+
     return true;
   }
 
@@ -70,23 +58,29 @@ public class AuxiliaryCollectionImpl<K, V> implements AuxiliaryCollectionI<K, V>
    */
   @Override
   public boolean append(DoublyLinkedNode toAdd) {
+    ((LockableDoublyLinkedNode) toAdd).lock();
+    tail.lock();
+    ((LockableDoublyLinkedNode) tail.getPrevious()).lock();
+
     if (toAdd == null) {
+      ((LockableDoublyLinkedNode) toAdd).unlock();
+      tail.unlock();
+      ((LockableDoublyLinkedNode) tail.getPrevious()).unlock();
       return false;
     }
+
     toAdd.setPrevious(tail.getPrevious());
     toAdd.setNext(tail);
+
     tail.getPrevious().setNext(toAdd);
     tail.setPrevious(toAdd);
-    size++;
-    //    if (head == null && tail == null) {
-    //      // There are no nodes in the list, i.e. size = 0
-    //      head = toAdd;
-    //    } else {
-    //      // There is at least one node in the list, i.e. size >= 1
-    //      toAdd.setPrevious(tail);
-    //      tail.setNext(toAdd);
-    //    }
-    //    tail = toAdd;
+
+    size.incrementAndGet();
+
+    ((LockableDoublyLinkedNode) toAdd).unlock();
+    tail.unlock();
+    ((LockableDoublyLinkedNode) tail.getPrevious()).unlock();
+
     return true;
   }
 
@@ -117,7 +111,7 @@ public class AuxiliaryCollectionImpl<K, V> implements AuxiliaryCollectionI<K, V>
    * @return Returns an int representing the number of items currently in the Collection.
    */
   public int size() {
-    return size;
+    return size.get();
   }
 
   /**
